@@ -87,9 +87,16 @@ export function LandingPage() {
     } catch (err) {
       const name = err instanceof Error ? err.name : ''
       if (name === 'TimeoutError' || name === 'AbortError') {
-        setResetError('Reset timed out. Is the API running on port 5000? Try again.')
+        setResetError(
+          'Reset timed out. Start MySQL (scripts/ensure-mysql.sh), all six services, and the gateway on port 5000.',
+        )
       } else {
-        setResetError(err instanceof Error ? err.message : 'Could not reset demo')
+        const msg = err instanceof Error ? err.message : 'Could not reset demo'
+        setResetError(
+          msg.includes('EntityManager') || msg.includes('Database unavailable')
+            ? `${msg} — run scripts/ensure-mysql.sh, restart services, then try again.`
+            : msg,
+        )
       }
     } finally {
       setResetting(false)

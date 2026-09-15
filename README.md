@@ -1,159 +1,114 @@
 # Renko SaaS POS System
 
-Monorepo for the my POS platform: Spring Boot API, React SPA, and an interview-ready demo flow.
+Microservice POS demo: Spring Boot domain services, nginx API gateway, React SPA, six MySQL databases.
 
-## Authorship
+**You only need Docker.** No local Java, Maven, Node, or MySQL install required for the default path.
 
-- **Backend** — almost entirely written by hand (domain model, controllers, services, security, tenancy, orders, inventory, subscriptions, and related tests).
-- **Frontend** — built with AI assistance (landing page, auth/POS/admin UI, playground wiring, styling, and demo tooling), on top of the hand-written API.
-
-## Structure
-
-```text
-renko-saas-pos-system/
-├── backend/              Spring Boot REST API (Java 21, Maven)
-├── frontend/             React + Vite + TypeScript SPA
-├── docker-compose.yml    Optional one-command local stack
-├── .env.example          Docker / local env defaults
-└── README.md
-```
-
-### Backend (`backend/`)
-
-- Controllers, services, repositories, entities, JWT security, Flyway migrations
-- Store tenancy / RBAC, inventory locking, subscriptions, reports, audit log
-- Dev helpers: clear DB + fixed demo seed (`/api/dev/...` on the `dev` profile)
-- Runs on port `5000`
-- MySQL database: `pos`
-
-### Frontend (`frontend/`)
-
-```text
-frontend/src/
-├── api/           HTTP calls to the backend
-├── components/    Shared UI, auth guards, layout
-├── features/      Playground domain sections + full-system TEST
-├── hooks/         Shared React hooks
-├── lib/           Utilities (API client, roles, receipt PDF, …)
-├── pages/         Landing, login/signup, POS, admin, workspace, playground
-├── routes/        React Router setup
-├── stores/        Client state (auth session, …)
-└── types/         Shared TypeScript types
-```
-
-Dev server runs on port `8080` and proxies `/api` and `/auth` to the backend.
-
-Open `http://localhost:8080` for the marketing landing page. From there you can reset the demo, sign in by role, use **POS** / **Admin**, or open the **API Playground**.
-
-## Prerequisites
-
-**Local run (Option A):**
-
-- Java 21+
-- Maven (or use `backend/./mvnw` — no global Maven install required)
-- MySQL 8+ running locally
-- Node.js 18+ (20+ recommended)
-
-**Docker run (Option B):**
-
-- Docker + Docker Compose only (MySQL, API, and UI all start from `docker compose up --build`)
-
-## Install and run
-
-There are two ways to run the project:
-
-- **Option A (local)** — you install Java, Node, and MySQL yourself.
-- **Option B (Docker)** — Compose starts **MySQL + backend + frontend** for you. You do **not** need a local MySQL install.
-
-### Option A — Local (backend + frontend on your machine)
-
-**1. Clone the repository**
+## Quick start
 
 ```bash
 git clone https://github.com/Renis032/SaaSPosSystem.git
-```
-
-**2. Create the database** (local MySQL only — skip this if you use Docker)
-
-In MySQL:
-
-```sql
-CREATE DATABASE pos;
-```
-
-Default connection (override via env or `backend/.env.example`):
-
-- Host: `localhost`
-- Port: `3306`
-- Database: `pos`
-- User: `root`
-- Password: `password`
-
-**3. Install and start the backend**
-
-```bash
-cd backend
-./mvnw spring-boot:run
-```
-
-- API: `http://localhost:5000`
-- Profile defaults to `dev` (demo reset endpoints enabled)
-
-Wait until Spring Boot finishes starting before opening the UI.
-
-**4. Install and start the frontend**
-
-In a second terminal:
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-- App: `http://localhost:8080`
-- Vite proxies `/api` and `/auth` to the backend on port `5000`
-
-**5. Open the app**
-
-Visit [http://localhost:8080](http://localhost:8080), click **Reset demo**, then sign in with a demo role (see below).
-
-### Option B — Docker (MySQL included)
-
-Compose starts three services: **MySQL**, **backend**, and **frontend**. The MySQL container creates the `pos` database automatically (`MYSQL_DATABASE=pos`). No separate MySQL install or `CREATE DATABASE` step is required.
-
-From the repo root:
-
-```bash
-cp .env.example .env   # optional: edit passwords / ports
+cd SaaSPosSystem
 docker compose up --build
 ```
 
-Then open [http://localhost:8080](http://localhost:8080).
+First build can take several minutes (Maven downloads + frontend build).
 
-| Service | URL |
+Open **http://localhost:8080** → click **Reset demo** → sign in:
+
+| Role | Email | Password |
+|------|--------|----------|
+| Owner | `owner@renko.demo` | `Demo1234!` |
+| Cashier | `cashier@renko.demo` | `Demo1234!` |
+| Manager | `manager@renko.demo` | `Demo1234!` |
+
+Stop: `Ctrl+C` or `docker compose down`  
+Wipe data and recreate DBs: `docker compose down -v`
+
+Optional overrides: `cp .env.example .env` then edit.
+
+## What you get
+
+| URL | What |
+|-----|------|
+| http://localhost:8080 | UI |
+| http://localhost:5000 | API gateway |
+| http://localhost:5001–5006 | Individual services (debug) |
+| localhost:3306 | MySQL (`pos_auth` … `pos_report`) |
+
+```text
+Browser → frontend (:8080) → gateway (:5000)
+                              ├─ auth      → pos_auth
+                              ├─ store     → pos_store
+                              ├─ catalog   → pos_catalog
+                              ├─ sales     → pos_sales
+                              ├─ billing   → pos_billing
+                              └─ report    → pos_report
+```
+
+Suggested demo: Owner admin → Cashier POS (shift, sell, PDF receipt) → Manager reports.
+
+## Prerequisites
+
+- [Docker](https://docs.docker.com/get-docker/) + Docker Compose v2  
+- ~8 GB free RAM recommended for the first build
+
+## Repo layout
+
+```text
+gateway/                 nginx API gateway
+services/
+  auth-service/          /auth, /api/users, /api/dev
+  store-service/         stores, branches, employees
+  catalog-service/       products, categories, inventory
+  sales-service/         orders, refunds, customers, shifts
+  billing-service/       subscriptions / Stripe
+  report-service/        reports, audit logs
+frontend/                React + Vite SPA
+scripts/mysql-init/      creates the six databases on first MySQL start
+docker-compose.yml
+```
+
+Cross-service links use Long IDs + HTTP (`RestClient`). JWT carries `userId`, `storeId`, `email`, `authorities`.
+
+## Troubleshooting
+
+| Symptom | Fix |
 |---------|-----|
-| Frontend | `http://localhost:8080` |
-| API | `http://localhost:5000` |
-| MySQL | `localhost:3306` (database `pos`, inside Docker) |
+| Port already in use | Stop local apps on `8080` / `5000`–`5006` / `3306`, or change ports in `.env` |
+| Old monolith DB / weird schema | `docker compose down -v` then `docker compose up --build` |
+| Reset demo fails / 502 | Wait until all containers are healthy (`docker compose ps`), then retry Reset |
+| Orphan containers warning | `docker compose up --build --remove-orphans` |
 
-Stop with `Ctrl+C`, or `docker compose down` (add `-v` to wipe the MySQL volume and all data).
+## Local development (optional)
 
-## Interview demo
+Only if you want to run services outside Docker. Needs Java 21, Node 20+, MySQL 8+.
 
-1. Open `http://localhost:8080`
-2. Click **Reset demo** (dev profile) to seed a fixed store and accounts
-3. Sign in and pick a role — password for all demo users: `Demo1234!`
+```bash
+# MySQL with the six DBs (easiest):
+docker compose up mysql -d
 
-| Role | Email |
-|------|--------|
-| Owner | `owner@renko.demo` |
-| Cashier | `cashier@renko.demo` |
-| Manager | `manager@renko.demo` |
-| Simple user | `user@renko.demo` |
+# Then one terminal per service:
+cd services/auth-service && ./mvnw spring-boot:run
+cd services/store-service && ./mvnw spring-boot:run
+# … catalog :5003, sales :5004, billing :5005, report :5006
 
-Suggested walkthrough: Owner admin → Cashier POS (start shift, sell, PDF receipt) → Manager reports.
+# Gateway:
+docker run --rm --network host \
+  -v "$PWD/gateway/nginx.local.conf:/etc/nginx/nginx.conf:ro" \
+  nginx:1.27-alpine
+
+# Frontend:
+cd frontend && npm install && npm run dev
+```
+
+Helper scripts (optional): `scripts/ensure-mysql.sh`, `scripts/run-services.sh`, `scripts/stop-services.sh`.
+
+## Authorship
+
+- **Backend** — mostly hand-written (domain, security, tenancy, orders, inventory, billing, tests).
+- **Frontend** — built with AI assistance on top of that API.
 
 ## CI
 
-GitHub Actions runs selected backend unit tests and `frontend` production build (see `.github/workflows/ci.yml`).
+GitHub Actions runs selected backend tests and the frontend production build (`.github/workflows/ci.yml`).

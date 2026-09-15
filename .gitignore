@@ -53,3 +53,6 @@ Thumbs.db
 
 ### VS Code ###
 .vscode/
+
+# Local microservice runner PIDs
+scripts/.pid-*

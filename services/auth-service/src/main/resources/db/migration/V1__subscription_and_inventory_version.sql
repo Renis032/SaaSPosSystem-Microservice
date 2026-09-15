@@ -1,0 +1,1 @@
+-- Obsolete for database-per-service; schema managed by Hibernate ddl-auto=update.
