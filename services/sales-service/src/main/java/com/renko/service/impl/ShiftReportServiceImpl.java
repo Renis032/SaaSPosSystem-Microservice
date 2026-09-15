@@ -72,8 +72,20 @@ public class ShiftReportServiceImpl implements ShiftReportService
     @Override
     public ShiftReportDto endShift(Long shiftReportId, LocalDateTime shiftEnd) throws Exception
     {
-        ShiftReportEntity shift = shiftReportRepository.findById(shiftReportId)
-                .orElseThrow(() -> ExceptionMessages.notFound("ShiftReport", shiftReportId, "end shift"));
+        ShiftReportEntity shift;
+        if(shiftReportId == null)
+        {
+            shift = requireOpenShift(requireCurrentCashierId());
+        }
+        else
+        {
+            shift = shiftReportRepository.findById(shiftReportId)
+                    .orElseThrow(() -> ExceptionMessages.notFound("ShiftReport", shiftReportId, "end shift"));
+            if(shift.getShiftEnd() != null)
+            {
+                throw new UserException("Shift is already ended");
+            }
+        }
         LocalDateTime end = shiftEnd != null ? shiftEnd : LocalDateTime.now();
         shift.setShiftEnd(end);
 
@@ -139,10 +151,8 @@ public class ShiftReportServiceImpl implements ShiftReportService
     @Override
     public ShiftReportDto getCurrentShiftProgress(Long cashierId) throws UserException
     {
-        ShiftReportEntity shift = shiftReportRepository
-                .findTopByCashierIdAndShiftEndIsNullOrderByShiftStartDesc(cashierId)
-                .orElseThrow(() -> new UserException("No open shift for cashierId=" + cashierId));
-        return ShiftReportMapper.toDto(shift);
+        Long id = cashierId != null ? cashierId : requireCurrentCashierId();
+        return ShiftReportMapper.toDto(requireOpenShift(id));
     }
 
     @Override
@@ -166,6 +176,23 @@ public class ShiftReportServiceImpl implements ShiftReportService
     public void deleteAllShiftReports()
     {
         shiftReportRepository.deleteAll();
+    }
+
+    private Long requireCurrentCashierId() throws UserException
+    {
+        UserDto currentUser = userService.getCurrentUser();
+        if(currentUser.getId() == null)
+        {
+            throw new UserException("Authenticated user has no userId");
+        }
+        return currentUser.getId();
+    }
+
+    private ShiftReportEntity requireOpenShift(Long cashierId) throws UserException
+    {
+        return shiftReportRepository
+                .findTopByCashierIdAndShiftEndIsNullOrderByShiftStartDesc(cashierId)
+                .orElseThrow(() -> new UserException("No open shift for cashierId=" + cashierId));
     }
 
     private List<PaymentSummaryEntity> buildPaymentSummaries(List<OrderEntity> orders)

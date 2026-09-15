@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { endShift, getCurrentShift, listShiftsByStore, startShift } from '@/api/shifts'
-import { ApiError } from '@/lib/api-client'
+import { endShift, getCurrentShift, isNoOpenShiftError, listShiftsByStore, startShiftOrGetCurrent } from '@/api/shifts'
 import { useActiveBranch } from '@/lib/branch-store'
 import { useAdminContext } from '@/pages/admin/admin-context'
 import type { ShiftReport } from '@/types/models'
@@ -21,8 +20,8 @@ export function ShiftsPanel() {
       const [list, currentShift] = await Promise.all([
         listShiftsByStore(storeId),
         getCurrentShift().catch((err) => {
-          if (err instanceof ApiError && (err.status === 404 || err.status === 400)) return null
-          return null
+          if (isNoOpenShiftError(err)) return null
+          throw err
         }),
       ])
       setShifts(list)
@@ -43,7 +42,7 @@ export function ShiftsPanel() {
     setError(null)
     try {
       setCurrent(
-        await startShift(activeBranch?.id != null ? { branchId: activeBranch.id } : undefined),
+        await startShiftOrGetCurrent(activeBranch?.id != null ? { branchId: activeBranch.id } : undefined),
       )
       await load()
     } catch (err) {

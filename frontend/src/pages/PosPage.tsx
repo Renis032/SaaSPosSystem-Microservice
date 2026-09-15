@@ -3,8 +3,7 @@ import { listCustomersByStore, searchCustomers } from '@/api/customers'
 import { listInventoriesByStore } from '@/api/inventory'
 import { createOrder, getOrderReceipt } from '@/api/orders'
 import { listProductsByStore } from '@/api/products'
-import { endShift, getCurrentShift, startShift } from '@/api/shifts'
-import { ApiError } from '@/lib/api-client'
+import { endShift, getCurrentShift, isNoOpenShiftError, startShiftOrGetCurrent } from '@/api/shifts'
 import { useActiveBranch } from '@/lib/branch-store'
 import { downloadReceiptPdf, printReceipt } from '@/lib/receipt-pdf'
 import { useStoreId } from '@/hooks/useStoreId'
@@ -118,11 +117,9 @@ export function PosPage() {
       const current = await getCurrentShift()
       setShift(current)
     } catch (err) {
-      if (err instanceof ApiError && (err.status === 404 || err.status === 400)) {
+      if (isNoOpenShiftError(err)) {
         setShift(null)
-        return
       }
-      setShift(null)
     }
   }, [])
 
@@ -343,7 +340,7 @@ export function PosPage() {
     setShiftBusy(true)
     setError(null)
     try {
-      const started = await startShift(
+      const started = await startShiftOrGetCurrent(
         activeBranch?.id != null ? { branchId: activeBranch.id } : undefined,
       )
       setShift(started)

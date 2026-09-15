@@ -29,11 +29,16 @@ public class ShiftReportMapper
                 .storeId(entity.getStoreId())
                 .branchId(entity.getBranchId())
                 .paymentSummaries(mapPaymentSummaries(entity.getPaymentSummaries()))
-                .topSellingProductIds(entity.getTopSellingProductIds() != null
-                        ? entity.getTopSellingProductIds() : Collections.emptyList())
+                .topSellingProductIds(copyLongs(entity.getTopSellingProductIds()))
                 .recentOrderIds(mapOrderIds(entity.getRecentOrders()))
                 .refundIds(mapRefundIds(entity.getRefunds()))
                 .build();
+    }
+
+    private static List<Long> copyLongs(List<Long> ids)
+    {
+        if(ids == null || ids.isEmpty()) return Collections.emptyList();
+        return List.copyOf(ids);
     }
 
     private static List<PaymentSummaryDto> mapPaymentSummaries(List<PaymentSummaryEntity> entities)
