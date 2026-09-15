@@ -20,7 +20,7 @@ jobs:
           cache: maven
           cache-dependency-path: services/auth-service/pom.xml
       - name: Unit tests
-        run: ./mvnw -B test -Dtest=StoreAccessServiceImplTest
+        run: ./mvnw -B test -Dtest='!*ApplicationTests'
 
   sales-service:
     runs-on: ubuntu-latest
@@ -35,8 +35,8 @@ jobs:
           java-version: '21'
           cache: maven
           cache-dependency-path: services/sales-service/pom.xml
-      - name: Unit / integration tests
-        run: ./mvnw -B test -Dtest=OrderServiceInventoryLockTest,OrderStockRefundIntegrationTest
+      - name: Unit tests
+        run: ./mvnw -B test -Dtest='!*ApplicationTests'
 
   frontend:
     runs-on: ubuntu-latest
