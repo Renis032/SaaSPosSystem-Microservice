@@ -1,6 +1,7 @@
 package com.renko.service.impl;
 
 import com.renko.entities.AuditLogEntity;
+import com.renko.event.AuditEvent;
 import com.renko.payload.dto.UserDto;
 import com.renko.repository.AuditLogRepository;
 import com.renko.service.AuditLogService;
@@ -12,6 +13,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 
 @Service
@@ -47,22 +50,57 @@ public class AuditLogServiceImpl implements AuditLogService
             }
             catch(Exception ignored) {}
 
-            auditLogRepository.save(AuditLogEntity.builder()
-                    .storeId(storeId)
-                    .actorUserId(actorId)
-                    .actorEmail(actorEmail)
-                    .action(action)
-                    .entityType(entityType)
-                    .entityId(entityId)
-                    .details(details)
-                    .beforeState(beforeState)
-                    .afterState(afterState)
-                    .build());
+            persist(storeId, actorId, actorEmail, action, entityType, entityId, details, beforeState, afterState, null);
         }
         catch(Exception e)
         {
             log.warn("Failed to write audit log action={} entityType={}: {}", action, entityType, e.getMessage());
         }
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void ingest(AuditEvent event)
+    {
+        if(event == null || event.getAction() == null || event.getAction().isBlank())
+        {
+            return;
+        }
+        try
+        {
+            LocalDateTime occurredAt = event.getOccurredAt() != null
+                    ? LocalDateTime.ofInstant(event.getOccurredAt(), ZoneOffset.UTC)
+                    : null;
+            persist(event.getStoreId(), event.getActorUserId(), event.getActorEmail(),
+                    event.getAction(), event.getEntityType(), event.getEntityId(),
+                    event.getDetails(), event.getBeforeState(), event.getAfterState(), occurredAt);
+        }
+        catch(Exception e)
+        {
+            log.warn("Failed to ingest audit event action={} entityType={}: {}",
+                    event.getAction(), event.getEntityType(), e.getMessage());
+        }
+    }
+
+    private void persist(Long storeId, Long actorId, String actorEmail, String action, String entityType,
+                         String entityId, String details, String beforeState, String afterState,
+                         LocalDateTime createdAt)
+    {
+        AuditLogEntity.AuditLogEntityBuilder builder = AuditLogEntity.builder()
+                .storeId(storeId)
+                .actorUserId(actorId)
+                .actorEmail(actorEmail)
+                .action(action)
+                .entityType(entityType != null ? entityType : "Unknown")
+                .entityId(entityId)
+                .details(details)
+                .beforeState(beforeState)
+                .afterState(afterState);
+        if(createdAt != null)
+        {
+            builder.createdAt(createdAt);
+        }
+        auditLogRepository.save(builder.build());
     }
 
     @Override

@@ -1,6 +1,7 @@
 package com.renko.controller;
 
 import com.renko.entities.AuditLogEntity;
+import com.renko.event.AuditEvent;
 import com.renko.service.AuditLogService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -26,7 +27,27 @@ public class AuditLogController
         String details = body.get("details") != null ? String.valueOf(body.get("details")) : null;
         String before = body.get("beforeState") != null ? String.valueOf(body.get("beforeState")) : null;
         String after = body.get("afterState") != null ? String.valueOf(body.get("afterState")) : null;
-        auditLogService.recordChange(storeId, action, entityType, entityId, before, after, details);
+        Long actorUserId = body.get("actorUserId") != null ? Long.valueOf(String.valueOf(body.get("actorUserId"))) : null;
+        String actorEmail = body.get("actorEmail") != null ? String.valueOf(body.get("actorEmail")) : null;
+        if(actorUserId != null || actorEmail != null)
+        {
+            AuditEvent event = AuditEvent.builder()
+                    .storeId(storeId)
+                    .action(action)
+                    .entityType(entityType)
+                    .entityId(entityId)
+                    .details(details)
+                    .beforeState(before)
+                    .afterState(after)
+                    .actorUserId(actorUserId)
+                    .actorEmail(actorEmail)
+                    .build();
+            auditLogService.ingest(event);
+        }
+        else
+        {
+            auditLogService.recordChange(storeId, action, entityType, entityId, before, after, details);
+        }
         return ResponseEntity.accepted().build();
     }
 

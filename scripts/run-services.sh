@@ -8,11 +8,17 @@ export MYSQL_HOST="${MYSQL_HOST:-127.0.0.1}"
 export MYSQL_PORT="${MYSQL_PORT:-3306}"
 export MYSQL_USER="${MYSQL_USER:-root}"
 export MYSQL_PASSWORD="${MYSQL_PASSWORD:-password}"
+export KAFKA_BOOTSTRAP_SERVERS="${KAFKA_BOOTSTRAP_SERVERS:-127.0.0.1:9092}"
+export KAFKA_ENABLED="${KAFKA_ENABLED:-true}"
 # Do not inherit a shared MYSQL_DATABASE=pos from the shell / old .env
 unset MYSQL_DATABASE || true
 
 "$ROOT/scripts/stop-services.sh"
 "$ROOT/scripts/ensure-mysql.sh"
+if ! "$ROOT/scripts/ensure-kafka.sh"; then
+  echo "Continuing without Kafka (HTTP audit fallback)."
+  export KAFKA_ENABLED=false
+fi
 
 wait_http() {
   local port="$1"
